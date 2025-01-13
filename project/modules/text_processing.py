@@ -22,7 +22,7 @@ class TextProcessor:
             '대하여', '대해서', '대해', '한편', '그런데', '현재', '바로', '마침', '대체로', '확실히',
             '종종', '대개', '평소', '언젠가', '얼마나', '거의', '한번', '오히려', '비슷하게', '가령',
             '차라리', '왜냐하면', '그리하여', '그다지', '정말', '심지어', '게다가', '하지만', '반면에', '따르면', 
-            '했다', '하는', '있는', '에는', '이라고', '라고', '있다고', '한다고', '했다고', '하지', '한다고'])
+            '했다', '하는', '있는', '에는', '이라고', '라고', '있다고', '한다고', '했다고', '하지', '한다고', '때문'])
 
         else:
             self.stop_words = set()  # 기본값: 빈 불용어 목록
@@ -74,18 +74,6 @@ def preprocess_data(texts):
 
     return tokenized_texts
 
-def perform_lda(tokenized_texts, num_topics=5, passes=15):
-    """LDA 토픽 모델링 수행"""
-    # 단어 사전 생성
-    dictionary = corpora.Dictionary(tokenized_texts)
-    corpus = [dictionary.doc2bow(text) for text in tokenized_texts]
-
-    # LDA 모델 학습
-    lda_model = LdaModel(corpus=corpus, num_topics=num_topics, id2word=dictionary, passes=passes)
-
-    # 토픽 출력
-    topics = lda_model.print_topics(num_words=5)
-    return lda_model, corpus, dictionary, topics
 
 # TextProcessor 초기화
 processor = TextProcessor(language='korean')

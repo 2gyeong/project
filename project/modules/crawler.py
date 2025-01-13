@@ -2,6 +2,7 @@ import requests
 from bs4 import BeautifulSoup
 import time
 
+base_url = 'https://news.naver.com'
 class NewsCrawler:
     def __init__(self, ajax_url):
         self.ajax_url = ajax_url
@@ -34,10 +35,16 @@ class NewsCrawler:
                 html_content = data.get("renderedComponent", {}).get("SECTION_ARTICLE_LIST", "")
                 soup = BeautifulSoup(html_content, 'html.parser')
 
+
                 for item in soup.select('.sa_list li.sa_item'):
                     title_tag = item.select_one('.sa_text a')
                     title = title_tag.get_text(strip=True) if title_tag else "No title"
-                    link = title_tag['href'] if title_tag and 'href' in title_tag.attrs else "No link"
+
+                    # Generate the full URL using oid and aid
+                    oid = item.get('data-oid')  # 데이터 키 확인 필요
+                    aid = item.get('data-aid')  # 데이터 키 확인 필요
+
+                    link = f"{base_url}{title_tag['href']}" if title_tag and 'href' in title_tag.attrs else "No link"
                     articles.append({'title': title, 'link': link})
 
                 next_cursor_tag = soup.select_one('div[data-cursor]')
