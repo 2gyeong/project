@@ -1,6 +1,14 @@
-.DS_Store
-.cache/
-.config/
-Downloads/
-Library/
+# 시스템 디렉터리 무시
+/.Trash/
+/Library/
+/Applications/
+/Desktop/
+/Documents/
+/Downloads/
+/Music/
+/Movies/
+/Pictures/
+/Public/
 
+# 설정 파일 무시
+.*
