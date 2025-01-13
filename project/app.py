@@ -2,6 +2,10 @@ import streamlit as st
 import requests
 from bs4 import BeautifulSoup
 import time
+import os
+import json
+from modules.text_processing import TextProcessor
+from modules.topic_modeling import load_data, preprocess_data, perform_lda
 
 class NewsCrawler:
     def __init__(self, ajax_url):
@@ -52,10 +56,29 @@ class NewsCrawler:
                 break
 
         return articles
+    
+    def fetch_article_content(self, url):
+        """개별 기사 페이지에서 제목과 본문 크롤링"""
+        response = requests.get(url, headers=self.headers)
+
+        if response.status_code != 200:
+            return None
+
+        soup = BeautifulSoup(response.text, 'html.parser')
+
+        try:
+            title = soup.select_one('.media_end_head_headline').get_text(strip=True)
+            body = soup.select_one('#dic_area').get_text(strip=True)
+            return {'title': title, 'body': body}
+        except Exception as e:
+            return None
+
+# 데이터 저장 경로 설정
+data_dir = "data"
+os.makedirs(data_dir, exist_ok=True)
 
 # Streamlit 앱 구현
-st.title("네이버 뉴스")
-# st.subheader("Select a category to fetch the latest news articles")
+st.title("네이버 뉴스 및 토픽 모델링")
 
 # 카테고리와 sid 매핑
 data_categories = {
@@ -67,22 +90,75 @@ data_categories = {
     "세계": 104
 }
 
+# TextProcessor 초기화 (한국어 처리)
+processor = TextProcessor()
+
 # 사용자 입력받기 (탭으로 구현)
 tabs = st.tabs(list(data_categories.keys()))
 
+all_texts = []
+
 for tab, (category, sid) in zip(tabs, data_categories.items()):
     with tab:
-       # st.write(f"Fetching articles for **{category}**...")
         ajax_url = 'https://news.naver.com/section/template/SECTION_ARTICLE_LIST'
         crawler = NewsCrawler(ajax_url)
 
         articles = crawler.fetch_articles(sid=sid, start_page=1, max_pages=2)  # 최대 2페이지만 가져오기
 
         if articles:
-           # st.success(f"Fetched {len(articles)} articles from {category}.")
-            for idx, article in enumerate(articles, start=1):
-                st.markdown(f"**{idx}. [ {article['title']} ]({article['link']})**")
-                if idx >= 10:  # 최대 10개의 기사만 표시
+            detailed_articles = []
+            for article in articles:
+                if 'link' not in article or not article['link']:
+                    st.warning(f"Skipping article without a valid link: {article.get('title', 'No title')}")
+                    continue  # 링크가 없는 기사 건너뛰기
+
+                content = crawler.fetch_article_content(article['link'])
+                if content:
+                    # 텍스트 정제 및 불용어 제거 수행
+                    processed_body = processor.process_text(content['body'])
+                    content['processed_body'] = processed_body
+                    detailed_articles.append(content)
+                    all_texts.append(processed_body)
+
+            # JSON 파일로 저장
+            sanitized_category = category.replace("/", "_")
+            file_path = os.path.join(data_dir, f"{sanitized_category}.json")
+            with open(file_path, "w", encoding="utf-8") as f:
+                json.dump(detailed_articles, f, ensure_ascii=False, indent=4)
+
+            # 표시할 기사 수 설정
+            max_display = st.slider(
+                f"{category} 표시할 기사 수 선택",
+                min_value=1,
+                max_value=min(len(detailed_articles), 72),
+                value=10,
+                key=f"slider_{category}"
+            )
+
+            # 기사 제목과 정제된 본문 일부 출력
+            for idx, article in enumerate(detailed_articles, start=1):
+                title = article.get('title', 'No title')
+                link = article.get('link', '#')  # 링크가 없는 경우 기본값으로 설정
+                processed_body = article.get('processed_body', 'No processed body available')
+                
+                st.markdown(f"**{idx}. [ {title} ]({link})**")
+             #   st.write(f"본문: {processed_body[:100]}...")  # 정제된 본문 일부만 출력
+                if idx >= max_display:  # 설정된 기사 수까지만 출력
                     break
         else:
-            st.warning("No articles found or failed to fetch articles.")
+            st.warning(f"No articles found for {category}.")
+
+# LDA 토픽 모델링 실행
+if all_texts:
+    st.header("LDA 토픽 모델링")
+    num_topics = st.slider("토픽 수 선택", min_value=2, max_value=10, value=5, key="lda_slider")
+    fixed_passes = 15  # 반복 학습 횟수 고정
+
+    if st.button("토픽 모델링 실행"):
+        tokenized_texts = preprocess_data(all_texts)
+        lda_model, corpus, dictionary, topics = perform_lda(tokenized_texts, num_topics=num_topics, passes=fixed_passes)
+
+        st.success("LDA 토픽 모델링 완료!")
+        for idx, topic in enumerate(topics, start=1):
+            st.markdown(f"**Topic {idx}:** {topic[1]}")
+
