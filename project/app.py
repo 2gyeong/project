@@ -7,7 +7,7 @@ import json
 from modules.text_processing import TextProcessor
 from modules.topic_modeling import preprocess_data, perform_lda
 from modules.visualization import generate_combined_wordcloud
-
+# test
 class NewsCrawler:
     def __init__(self, ajax_url):
         self.ajax_url = ajax_url
