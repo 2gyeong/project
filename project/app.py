@@ -5,8 +5,8 @@ import time
 import os
 import json
 from modules.text_processing import TextProcessor
-from modules.topic_modeling import load_data, preprocess_data, perform_lda, generate_combined_wordcloud
-
+from modules.topic_modeling import preprocess_data, perform_lda
+from modules.visualization import generate_combined_wordcloud
 
 class NewsCrawler:
     def __init__(self, ajax_url):
@@ -79,7 +79,7 @@ data_dir = "data"
 os.makedirs(data_dir, exist_ok=True)
 
 # Streamlit 앱 구현
-st.title("네이버 뉴스 및 토픽 모델링")
+st.title("네이버 뉴스")
 
 # 카테고리와 sid 매핑
 data_categories = {
@@ -97,8 +97,6 @@ processor = TextProcessor()
 # 사용자 입력받기 (탭으로 구현)
 tabs = st.tabs(list(data_categories.keys()))
 
-all_texts = []
-
 for tab, (category, sid) in zip(tabs, data_categories.items()):
     with tab:
         ajax_url = 'https://news.naver.com/section/template/SECTION_ARTICLE_LIST'
@@ -108,6 +106,8 @@ for tab, (category, sid) in zip(tabs, data_categories.items()):
 
         if articles:
             detailed_articles = []
+            category_texts = []
+
             for article in articles:
                 if 'link' not in article or not article['link']:
                     st.warning(f"Skipping article without a valid link: {article.get('title', 'No title')}")
@@ -119,7 +119,7 @@ for tab, (category, sid) in zip(tabs, data_categories.items()):
                     processed_body = processor.process_text(content['body'])
                     content['processed_body'] = processed_body
                     detailed_articles.append(content)
-                    all_texts.append(processed_body)
+                    category_texts.append(processed_body)
 
             # JSON 파일로 저장
             sanitized_category = category.replace("/", "_")
@@ -127,7 +127,7 @@ for tab, (category, sid) in zip(tabs, data_categories.items()):
             with open(file_path, "w", encoding="utf-8") as f:
                 json.dump(detailed_articles, f, ensure_ascii=False, indent=4)
 
-            # 표시할 기사 수 설정
+            # 기사 출력
             max_display = st.slider(
                 f"{category} 표시할 기사 수 선택",
                 min_value=1,
@@ -136,38 +136,26 @@ for tab, (category, sid) in zip(tabs, data_categories.items()):
                 key=f"slider_{category}"
             )
 
-            # 기사 제목과 정제된 본문 일부 출력
             for idx, article in enumerate(detailed_articles, start=1):
                 title = article.get('title', 'No title')
                 link = article.get('link', '#')  # 링크가 없는 경우 기본값으로 설정
-                processed_body = article.get('processed_body', 'No processed body available')
-                
                 st.markdown(f"**{idx}. [ {title} ]({link})**")
-             #   st.write(f"본문: {processed_body[:100]}...")  # 정제된 본문 일부만 출력
-                if idx >= max_display:  # 설정된 기사 수까지만 출력
+                if idx >= max_display:
                     break
+
+            # LDA 토픽 모델링 실행
+            if st.button(f"{category} 토픽 모델링 실행"):
+                st.markdown(f"### {category} 카테고리의 토픽 모델링 결과")
+                tokenized_texts = preprocess_data(category_texts)
+                lda_model, corpus, dictionary, topics = perform_lda(tokenized_texts, num_topics=5, passes=15)
+
+                # 토픽 출력
+                for idx, topic in enumerate(topics, start=1):
+                    st.markdown(f"**Topic {idx}:** {topic[1]}")
+
+                # 워드클라우드 생성 및 출력
+                st.markdown(f"### {category} 카테고리의 워드클라우드")
+                category_wc_image = generate_combined_wordcloud(lda_model, dictionary, num_topics=5)
+                st.image(category_wc_image, caption=f"{category} 카테고리 워드클라우드")
         else:
             st.warning(f"No articles found for {category}.")
-
-# LDA 토픽 모델링 실행
-if all_texts:
-    st.header("LDA 토픽 모델링")
-    num_topics = 5
-    fixed_passes = 15  # 반복 학습 횟수 고정
-
-    if st.button("토픽 모델링 실행"):
-        tokenized_texts = preprocess_data(all_texts)
-        lda_model, corpus, dictionary, topics = perform_lda(tokenized_texts, num_topics=num_topics, passes=fixed_passes)
-
-        st.success("LDA 토픽 모델링 완료!")
-        
-        # 모든 토픽 출력
-        for idx, topic in enumerate(topics, start=1):
-            st.markdown(f"**Topic {idx}:** {topic[1]}")
-
-        # 통합 워드클라우드 생성 및 표시
-        st.markdown("### 통합 워드클라우드")
-        combined_wc_image = generate_combined_wordcloud(lda_model, dictionary, num_topics=num_topics)
-        st.image(combined_wc_image, caption="통합 워드클라우드")
-
-
