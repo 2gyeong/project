@@ -54,35 +54,35 @@ class NewsCrawler:
         return articles
 
 # Streamlit 앱 구현
-st.title("News Crawler App")
-st.subheader("Select a category to fetch the latest news articles")
+st.title("네이버 뉴스")
+# st.subheader("Select a category to fetch the latest news articles")
 
 # 카테고리와 sid 매핑
 data_categories = {
-    "Politics": 100,
-    "Economy": 101,
-    "Society": 102,
-    "Lifestyle": 103,
-    "Science": 105,
-    "World": 104
+    "정치": 100,
+    "경제": 101,
+    "사회": 102,
+    "생활/문화": 103,
+    "IT/과학": 105,
+    "세계": 104
 }
 
-# 사용자 입력받기
-selected_category = st.selectbox("Choose a category", options=list(data_categories.keys()))
+# 사용자 입력받기 (탭으로 구현)
+tabs = st.tabs(list(data_categories.keys()))
 
-if selected_category:
-    sid = data_categories[selected_category]
-    ajax_url = 'https://news.naver.com/section/template/SECTION_ARTICLE_LIST'
-    crawler = NewsCrawler(ajax_url)
+for tab, (category, sid) in zip(tabs, data_categories.items()):
+    with tab:
+       # st.write(f"Fetching articles for **{category}**...")
+        ajax_url = 'https://news.naver.com/section/template/SECTION_ARTICLE_LIST'
+        crawler = NewsCrawler(ajax_url)
 
-    st.write(f"Fetching articles for **{selected_category}**...")
-    articles = crawler.fetch_articles(sid=sid, start_page=1, max_pages=2)  # 최대 2페이지만 가져오기
+        articles = crawler.fetch_articles(sid=sid, start_page=1, max_pages=2)  # 최대 2페이지만 가져오기
 
-    if articles:
-        st.success(f"Fetched {len(articles)} articles from {selected_category}.")
-        for idx, article in enumerate(articles, start=1):
-            st.markdown(f"**{idx}. [ {article['title']} ]({article['link']})**")
-            if idx >= 10:  # 최대 10개의 기사만 표시
-                break
-    else:
-        st.warning("No articles found or failed to fetch articles.")
+        if articles:
+           # st.success(f"Fetched {len(articles)} articles from {category}.")
+            for idx, article in enumerate(articles, start=1):
+                st.markdown(f"**{idx}. [ {article['title']} ]({article['link']})**")
+                if idx >= 10:  # 최대 10개의 기사만 표시
+                    break
+        else:
+            st.warning("No articles found or failed to fetch articles.")
