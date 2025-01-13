@@ -2,6 +2,7 @@ from gensim import corpora
 from gensim.models import LdaModel
 from konlpy.tag import Okt
 from wordcloud import WordCloud
+import streamlit as st
 import re
 import os
 import json
