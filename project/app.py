@@ -5,7 +5,8 @@ import time
 import os
 import json
 from modules.text_processing import TextProcessor
-from modules.topic_modeling import load_data, preprocess_data, perform_lda
+from modules.topic_modeling import load_data, preprocess_data, perform_lda, generate_combined_wordcloud
+
 
 class NewsCrawler:
     def __init__(self, ajax_url):
@@ -151,7 +152,7 @@ for tab, (category, sid) in zip(tabs, data_categories.items()):
 # LDA 토픽 모델링 실행
 if all_texts:
     st.header("LDA 토픽 모델링")
-    num_topics = st.slider("토픽 수 선택", min_value=2, max_value=10, value=5, key="lda_slider")
+    num_topics = 5
     fixed_passes = 15  # 반복 학습 횟수 고정
 
     if st.button("토픽 모델링 실행"):
@@ -159,6 +160,14 @@ if all_texts:
         lda_model, corpus, dictionary, topics = perform_lda(tokenized_texts, num_topics=num_topics, passes=fixed_passes)
 
         st.success("LDA 토픽 모델링 완료!")
+        
+        # 모든 토픽 출력
         for idx, topic in enumerate(topics, start=1):
             st.markdown(f"**Topic {idx}:** {topic[1]}")
+
+        # 통합 워드클라우드 생성 및 표시
+        st.markdown("### 통합 워드클라우드")
+        combined_wc_image = generate_combined_wordcloud(lda_model, dictionary, num_topics=num_topics)
+        st.image(combined_wc_image, caption="통합 워드클라우드")
+
 
