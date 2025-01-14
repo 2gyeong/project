@@ -46,7 +46,12 @@ for tab, category in zip(tabs, categories):
 
                 # 워드클라우드 생성 및 표시 (이미지 기반)
                 st.markdown("### 워드클라우드")
-                wordcloud_image = generate_wordcloud_image(lda_model, dictionary, topic_id)
+                wordcloud_image = generate_wordcloud_image(lda_model, dictionary, topic_id, font_path="/Library/Fonts/AppleGothic.ttf")
+
+                if wordcloud_image:
+                    st.image(wordcloud_image, caption=f"Topic {topic_id + 1} WordCloud", use_column_width=True)
+                else:
+                    st.error("워드클라우드를 생성할 수 없습니다.")
 
                 # 관련 기사 표시
                 display_related_articles(lda_model, corpus, topic_id, articles)
