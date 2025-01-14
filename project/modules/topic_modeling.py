@@ -78,7 +78,7 @@ def generate_topic_labels_with_context(lda_model, num_topics, topn=5, language="
             # KorLex 기반 주제 생성
             okt = Okt()
             analyzed_keywords = [" ".join(okt.morphs(keyword)) for keyword in keywords]
-            label = f"주제 : {analyzed_keywords[0]}, 키워드: {', '.join(analyzed_keywords[1:])}"
+            label = f"{analyzed_keywords[0]} | {', '.join(analyzed_keywords[1:])}"
 
         topic_labels.append(f"{topic_id + 1}. {label}")
 
