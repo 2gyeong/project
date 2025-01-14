@@ -1,171 +1,54 @@
+# Streamlit 앱
 import streamlit as st
-import requests
-from bs4 import BeautifulSoup
-import time
-import os
-import json
-from modules.text_processing import TextProcessor
+from modules.visualization import generate_wordcloud_image, display_related_articles
 from modules.topic_modeling import preprocess_data, perform_lda
-from modules.visualization import generate_combined_wordcloud
+import json
+import os
 
-class NewsCrawler:
-    def __init__(self, ajax_url):
-        self.ajax_url = ajax_url
-        self.headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36',
-            'Accept-Language': 'ko-KR,ko;q=0.9',
-        }
-
-    def fetch_articles(self, sid, start_page=1, max_pages=5):
-        articles = []
-        next_value = None
-        for page_no in range(start_page, start_page + max_pages):
-            params = {
-                'sid': sid,
-                'sid2': '',
-                'cluid': '',
-                'pageNo': page_no,
-                'date': '',
-                'next': next_value,
-                '_': int(time.time() * 1000),
-            }
-            response = requests.get(self.ajax_url, params=params, headers=self.headers)
-
-            if response.status_code != 200:
-                st.warning(f"Failed to fetch page {page_no} for sid {sid}: HTTP {response.status_code}")
-                break
-
-            try:
-                data = response.json()
-                html_content = data.get("renderedComponent", {}).get("SECTION_ARTICLE_LIST", "")
-                soup = BeautifulSoup(html_content, 'html.parser')
-
-                for item in soup.select('.sa_list li.sa_item'):
-                    title_tag = item.select_one('.sa_text a')
-                    title = title_tag.get_text(strip=True) if title_tag else "No title"
-                    link = title_tag['href'] if title_tag and 'href' in title_tag.attrs else None
-                    if link:
-                        articles.append({'title': title, 'link': link})
-
-                next_cursor_tag = soup.select_one('div[data-cursor]')
-                next_value = next_cursor_tag.get('data-cursor') if next_cursor_tag else None
-
-                if not next_value:
-                    st.info(f"No more pages to fetch for sid {sid}.")
-                    break
-            except Exception as e:
-                st.error(f"Error parsing response for page {page_no} and sid {sid}: {e}")
-                break
-
-        return articles
-
-    def fetch_article_content(self, url):
-        """Fetch the title and body of an article from its URL."""
-        if not url.startswith('http'):
-            st.warning(f"Invalid URL: {url}")
-            return None
-
-        response = requests.get(url, headers=self.headers)
-        if response.status_code != 200:
-            st.error(f"Failed to fetch article content from {url}")
-            return None
-
-        soup = BeautifulSoup(response.text, 'html.parser')
-
-        try:
-            title = soup.select_one('.media_end_head_headline').get_text(strip=True)
-            body = soup.select_one('#dic_area').get_text(strip=True)
-            return {'title': title, 'body': body, 'link': url}
-        except Exception as e:
-            st.error(f"Error parsing article content from {url}: {e}")
-            return None
-
-# Set up data directory
-data_dir = "data"
-os.makedirs(data_dir, exist_ok=True)
-
-# Streamlit app implementation
 st.title("네이버 뉴스")
 
-# Map categories to their respective sids
-data_categories = {
-    "정치": 100,
-    "경제": 101,
-    "사회": 102,
-    "생활/문화": 103,
-    "IT/과학": 105,
-    "세계": 104
-}
+# 데이터 디렉토리와 카테고리 설정
+data_dir = "data"
+categories = ["정치", "경제", "사회", "생활/문화", "IT/과학", "세계"]
 
-# Initialize text processor
-processor = TextProcessor()
+# 카테고리를 탭으로 생성
+tabs = st.tabs(categories)
 
-# Create tabs for categories
-tabs = st.tabs(list(data_categories.keys()))
-
-for tab, (category, sid) in zip(tabs, data_categories.items()):
+for tab, category in zip(tabs, categories):
     with tab:
-        ajax_url = 'https://news.naver.com/section/template/SECTION_ARTICLE_LIST'
-        crawler = NewsCrawler(ajax_url)
+        st.subheader(f"{category} 카테고리 분석")
 
-        articles = crawler.fetch_articles(sid=sid, start_page=1, max_pages=2)  # Fetch up to 2 pages
+        # 파일명 변환 (슬래시를 언더스코어로 대체)
+        sanitized_category = category.replace("/", "_")
+        file_path = os.path.join(data_dir, f"{sanitized_category}.json")
 
-        if articles:
-            detailed_articles = []
-            category_texts = []
+        # 데이터 로드
+        if os.path.exists(file_path):
+            with open(file_path, "r", encoding="utf-8") as f:
+                articles = json.load(f)  # 기사 데이터 로드
 
-            for article in articles:
-                if 'link' not in article or not article['link']:
-                    st.warning(f"Skipping article without a valid link: {article.get('title', 'No title')}")
-                    continue
+            # 텍스트 데이터 전처리
+            category_texts = [article['processed_body'] for article in articles]
+            tokenized_texts = preprocess_data(category_texts)
 
-                content = crawler.fetch_article_content(article['link'])
-                if content:
-                    # Process text and remove stopwords
-                    processed_body = processor.process_text(content['body'])
-                    content['processed_body'] = processed_body
-                    detailed_articles.append(content)
-                    category_texts.append(processed_body)
+            # LDA 모델 학습
+            lda_model, corpus, dictionary, topics = perform_lda(tokenized_texts, num_topics=5, passes=15)
 
-            # Save articles to JSON
-            sanitized_category = category.replace("/", "_")
-            file_path = os.path.join(data_dir, f"{sanitized_category}.json")
-            with open(file_path, "w", encoding="utf-8") as f:
-                json.dump(detailed_articles, f, ensure_ascii=False, indent=4)
-
-            # Display articles
-            max_display = st.slider(
-                f"{category} 표시할 기사 수 선택",
-                min_value=1,
-                max_value=min(len(detailed_articles), 72),
-                value=10,
-                key=f"slider_{category}"
+            # 토픽 선택
+            selected_topic = st.selectbox(
+                "토픽을 선택하세요:",
+                [f"Topic {i + 1}" for i in range(len(topics))],
+                key=f"{sanitized_category}_topic_selectbox"
             )
 
-            for idx, article in enumerate(detailed_articles, start=1):
-                title = article.get('title', 'No title')
-                link = article.get('link')  # Ensure link is valid
-                if link:
-                    st.markdown(f"**{idx}. [{title}]({link})**")
-                else:
-                    st.warning(f"No valid link for article: {title}")
+            if selected_topic:
+                topic_id = int(selected_topic.split()[1]) - 1  # Topic ID 추출
 
-                if idx >= max_display:
-                    break
+                # 워드클라우드 생성 및 표시 (이미지 기반)
+                st.markdown("### 워드클라우드")
+                wordcloud_image = generate_wordcloud_image(lda_model, dictionary, topic_id)
 
-            # Run LDA topic modeling
-            if st.button(f"{category} 토픽 모델링 실행"):
-                st.markdown(f"### {category} 카테고리의 토픽 모델링 결과")
-                tokenized_texts = preprocess_data(category_texts)
-                lda_model, corpus, dictionary, topics = perform_lda(tokenized_texts, num_topics=5, passes=15)
-
-                # Display topics
-                for idx, topic in enumerate(topics, start=1):
-                    st.markdown(f"**Topic {idx}:** {topic[1]}")
-
-                # Generate and display word cloud
-                st.markdown(f"### {category} 카테고리의 워드클라우드")
-                category_wc_image = generate_combined_wordcloud(lda_model, dictionary, num_topics=5)
-                st.image(category_wc_image, caption=f"{category} 카테고리 워드클라우드")
+                # 관련 기사 표시
+                display_related_articles(lda_model, corpus, topic_id, articles)
         else:
-            st.warning(f"No articles found for {category}.")
+            st.error(f"{category} 데이터를 찾을 수 없습니다.")

@@ -1,50 +1,55 @@
 from wordcloud import WordCloud
+from io import BytesIO
 import matplotlib.pyplot as plt
-import io
+import random
+import streamlit as st
 
+def generate_wordcloud_image(lda_model, dictionary, topic_id, topn=10):
+    topic_terms = lda_model.show_topic(topic_id, topn=topn)
+    word_frequencies = {term: weight for term, weight in topic_terms}
 
-def generate_combined_wordcloud(lda_model, dictionary, num_topics, min_weight=0.01, width=800, height=400):
-    """
-    모든 토픽의 단어를 결합하여 하나의 워드클라우드를 생성합니다.
-    :param lda_model: 학습된 LDA 모델
-    :param dictionary: 단어 사전
-    :param num_topics: LDA 모델의 토픽 수
-    :param min_weight: 단어 필터링을 위한 최소 가중치
-    :param width: 워드클라우드 이미지 폭
-    :param height: 워드클라우드 이미지 높이
-    :return: 워드클라우드 이미지 (BytesIO)
-    """
-    combined_frequencies = {}
-
-    # 모든 토픽의 단어-가중치 데이터를 결합
-    for topic_id in range(num_topics):
-        topic_terms = lda_model.show_topic(topic_id, topn=50)  # 각 토픽의 상위 50개 단어
-        for term_id, weight in topic_terms:
-            if weight < min_weight:  # 최소 가중치 이하 단어 제거
-                continue
-            try:
-                term = dictionary[int(term_id)]  # term_id를 숫자로 처리
-            except (ValueError, KeyError):
-                term = term_id  # term_id 자체가 단어인 경우
-            if term in combined_frequencies:
-                combined_frequencies[term] += weight
-            else:
-                combined_frequencies[term] = weight
-
-    # 워드클라우드 생성
     wordcloud = WordCloud(
-        font_path='/Library/Fonts/AppleGothic.ttf',
-        width=width,
-        height=height,
-        background_color='white',
-        min_font_size=5  # 최소 글자 크기 설정
-    ).generate_from_frequencies(combined_frequencies)
-    
-    # 이미지 출력 준비
-    img = io.BytesIO()
+        width=800,
+        height=400,
+        background_color="white",
+        colormap="viridis",
+        font_path="/Library/Fonts/AppleGothic.ttf"
+    ).generate_from_frequencies(word_frequencies)
+
+    img_buffer = BytesIO()
     plt.figure(figsize=(10, 5))
-    plt.imshow(wordcloud, interpolation='bilinear')
-    plt.axis('off')
-    plt.savefig(img, format='png', bbox_inches='tight')
-    img.seek(0)
-    return img
+    plt.imshow(wordcloud, interpolation="bilinear")
+    plt.axis("off")
+    plt.savefig(img_buffer, format="png", bbox_inches="tight")
+    img_buffer.seek(0)
+    plt.close()
+
+    return img_buffer
+
+def display_related_articles(lda_model, corpus, topic_id, articles):
+    """
+    선택된 토픽과 관련된 기사를 Streamlit에 표시합니다.
+    :param lda_model: 학습된 LDA 모델
+    :param corpus: Gensim 코퍼스 (문서의 BOW 표현)
+    :param topic_id: 선택된 토픽 ID
+    :param articles: 기사 데이터 (리스트 형식, 각 문서의 메타데이터 포함)
+    """
+    st.markdown(f"### Topic {topic_id + 1} 관련 기사")
+    related_articles = []
+
+    # 관련 문서 찾기
+    for doc_id, doc in enumerate(corpus):
+        doc_topics = lda_model.get_document_topics(doc)
+        for t_id, weight in doc_topics:
+            if t_id == topic_id and weight > 0.2:  # 가중치 기준
+                related_articles.append(articles[doc_id])  # 관련 기사 저장
+
+    # 관련 기사 표시
+    if related_articles:
+        for idx, article in enumerate(related_articles[:10], start=1):  # 최대 10개 기사 표시
+            title = article.get('title', 'No title')
+            link = article.get('link', '#')  # 링크가 없으면 기본값 #
+            st.markdown(f"- **[{title}]({link})**")
+    else:
+        st.markdown("관련 기사가 없습니다.")
+
