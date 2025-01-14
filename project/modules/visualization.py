@@ -45,7 +45,6 @@ def display_related_articles(lda_model, corpus, topic_id, articles):
     :param topic_id: 선택된 토픽 ID
     :param articles: 기사 데이터 (리스트 형식, 각 문서의 메타데이터 포함)
     """
-    st.markdown(f"### Topic {topic_id + 1} 관련 기사")
     related_articles = []
 
     # 관련 문서 찾기
