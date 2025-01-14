@@ -3,6 +3,10 @@ from io import BytesIO
 import matplotlib.pyplot as plt
 import random
 import streamlit as st
+import pandas as pd
+import altair as alt
+from modules.utils import format_price
+
 
 def generate_wordcloud_image(lda_model, dictionary, topic_id, topn=10, font_path=None):
     """
@@ -62,4 +66,24 @@ def display_related_articles(lda_model, corpus, topic_id, articles):
             st.markdown(f"- **[{title}]({link})**")
     else:
         st.markdown("관련 기사가 없습니다.")
+
+
+
+def create_dataframe(data, transaction_type):
+    df = pd.DataFrame(data)
+    df = df[df['transaction_type'] == transaction_type]
+    df['price'] = df['price'].apply(format_price)
+    return df
+
+
+def create_bar_chart(df, title):
+    chart = alt.Chart(df).mark_bar().encode(
+        x=alt.X('단지명:N', sort='-y'),
+        y=alt.Y('가격:Q', title="가격 (억)"),
+    ).properties(
+        title=title,
+        width=700,
+        height=400
+    )
+    return chart
 
