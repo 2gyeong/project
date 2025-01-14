@@ -1,22 +1,21 @@
-import streamlit as st
 from streamlit_option_menu import option_menu
 
 def create_sidebar():
     return option_menu(
         "메뉴",
-        ["네이버 뉴스", "부동산 데이터"],
-        icons=["newspaper", "building"],
+        ["메인 페이지", "네이버 뉴스", "부동산 정보"],
+        icons=["house", "newspaper", "building"],
         menu_icon="app-indicator",
         default_index=0,
         styles={
             "container": {"padding": "5!important", "background-color": "#FAFAFA"},
-            "icon": {"color": "#1F77B4", "font-size": "25px"},
+            "icon": {"color": "blue", "font-size": "25px"},
             "nav-link": {
                 "font-size": "16px",
                 "text-align": "left",
                 "margin": "0px",
-                "--hover-color": "#F0F8FF",
+                "--hover-color": "#E0F7FA",
             },
-            "nav-link-selected": {"background-color": "#87CEFA", "font-weight": "bold"},  # 선택된 메뉴 배경 하늘색, 텍스트 볼드
+            "nav-link-selected": {"background-color": "#B3E5FC", "font-weight": "bold"},
         },
     )
