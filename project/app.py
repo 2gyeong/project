@@ -5,6 +5,11 @@ from modules.naver_news import render_naver_news_page
 from modules.real_estate import render_real_estate_page
 from modules.sidebar import create_sidebar
 
+st.set_page_config(
+    page_title="뉴스 및 부동산 정보",  # 브라우저 탭 제목
+    page_icon="🌟"  # 탭 아이콘
+)
+
 # 사이드바 메뉴 생성
 with st.sidebar:
     selected = create_sidebar()
