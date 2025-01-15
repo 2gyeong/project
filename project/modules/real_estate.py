@@ -8,7 +8,7 @@ from modules.utils import convert_price
 from modules.visualization import create_dataframe, create_bar_chart
 
 def render_real_estate_page():
-    st.title("부동산 정보")
+    st.title("🏢 부동산 정보")
 
     # JSON 파일 경로
     base_path = os.path.dirname(os.path.abspath(__file__))
@@ -33,14 +33,14 @@ def render_real_estate_page():
 
     # 50~60㎡ 탭 내용
     with tab_50_60:
-        st.subheader("50~60㎡ 아파트 데이터")
+        #st.subheader("50~60㎡ 아파트 데이터")
         data_type_50_60 = st.radio("거래 유형을 선택하세요:", ("매매", "전세"), horizontal=True, key="data_type_50_60")
         if st.button("50~60㎡ 조회"):
             process_real_estate_data(selected_dong, dong_options, data_type_50_60, 50, 60)
 
     # 80~90㎡ 탭 내용
     with tab_80_90:
-        st.subheader("80~90㎡ 아파트 데이터")
+        #st.subheader("80~90㎡ 아파트 데이터")
         data_type_80_90 = st.radio("거래 유형을 선택하세요:", ("매매", "전세"), horizontal=True, key="data_type_80_90")
         if st.button("80~90㎡ 조회"):
             process_real_estate_data(selected_dong, dong_options, data_type_80_90, 80, 90)
