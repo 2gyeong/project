@@ -1,11 +1,12 @@
-from wordcloud import WordCloud
-from io import BytesIO
 import matplotlib.pyplot as plt
 import random
 import streamlit as st
 import pandas as pd
 import altair as alt
-from modules.utils import format_price
+import seaborn as sns
+from modules.utils import convert_price
+from wordcloud import WordCloud
+from io import BytesIO
 
 
 def generate_wordcloud_image(lda_model, dictionary, topic_id, topn=10, font_path=None):
@@ -70,16 +71,52 @@ def display_related_articles(lda_model, corpus, topic_id, articles):
 
 
 def create_dataframe(data, transaction_type):
+    # 데이터프레임 생성
     df = pd.DataFrame(data)
+
+    # 필요한 키가 데이터에 포함되어 있는지 확인
+    required_columns = ['name', 'price', 'transaction_type', 'area', 'floor']
+    for col in required_columns:
+        if col not in df.columns:
+            st.error(f"필수 컬럼 '{col}'이(가) 데이터에 없습니다.")
+            return pd.DataFrame()  # 빈 데이터프레임 반환
+
+    # 선택한 거래 유형 필터링
     df = df[df['transaction_type'] == transaction_type]
-    df['price'] = df['price'].apply(format_price)
+
+    # 컬럼 이름 매핑
+    df.rename(columns={
+        'name': '단지명',
+        'price': '가격',
+        'area': '전용면적',
+        'floor': '현재 층/전체 층'
+    }, inplace=True)
+
+    # 가격 변환
+    try:
+        df['가격'] = df['가격'].apply(convert_price)
+    except Exception as e:
+        st.error(f"가격 데이터를 변환하는 중 오류 발생: {e}")
+        return pd.DataFrame()
+
     return df
 
 
+
 def create_bar_chart(df, title):
+    # 데이터프레임이 비어 있는 경우 처리
+    if df.empty:
+        st.warning("차트를 생성할 데이터가 없습니다.")
+        return None
+
+    # 단지명을 문자열로 변환
+    df['단지명'] = df['단지명'].astype(str)
+
+    # Altair 바 차트 생성
     chart = alt.Chart(df).mark_bar().encode(
-        x=alt.X('단지명:N', sort='-y'),
+        x=alt.X('단지명:N', sort='-y', title="단지명"),
         y=alt.Y('가격:Q', title="가격 (억)"),
+        tooltip=['단지명', '가격', '전용면적', '현재 층/전체 층']
     ).properties(
         title=title,
         width=700,
@@ -87,3 +124,42 @@ def create_bar_chart(df, title):
     )
     return chart
 
+
+
+def create_bar_chart(df, title):
+    # 데이터프레임이 비어 있는 경우 처리
+    if df.empty:
+        st.warning("차트를 생성할 데이터가 없습니다.")
+        return None
+
+    # 데이터 타입 변환
+    df['단지명'] = df['단지명'].astype(str)  # 범주형
+    df['가격'] = pd.to_numeric(df['가격'], errors='coerce')  # 수치형
+
+    # 결측값 제거
+    df = df.dropna(subset=['단지명', '가격'])
+
+    # Altair 바 차트 생성
+    chart = alt.Chart(df).mark_bar().encode(
+        x=alt.X('단지명:N', sort='-y', title="단지명"),
+        y=alt.Y('가격:Q', title="가격 (억)"),
+        tooltip=['단지명', '가격', '전용면적', '현재 층/전체 층']
+    ).properties(
+        title=title,
+        width=700,
+        height=400
+    )
+    return chart
+
+
+
+def create_heatmap(df, title):
+    if df.empty:
+        st.write(f"{title} 데이터가 없습니다.")
+        return
+    price_matrix = df.pivot_table(index='단지명', values='가격', aggfunc='mean')
+    price_matrix = price_matrix.sort_values(by='가격', ascending=False)
+    plt.figure(figsize=(10, 6))
+    sns.heatmap(price_matrix, annot=True, fmt=".0f", cmap="coolwarm")
+    plt.title(title)
+    st.pyplot(plt)

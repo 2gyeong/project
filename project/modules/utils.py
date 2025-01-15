@@ -1,12 +1,20 @@
+import streamlit as st
+
 def convert_price(price_str):
     """가격 문자열을 정수로 변환"""
-    price_str = price_str.replace(' ', '')
-    if '억' in price_str:
-        main, sub = price_str.split('억')[0], price_str.split('억')[1].split('만')[0] if '만' in price_str else 0
-        return int(main) * 100000000 + int(sub) * 10000
-    elif '만' in price_str:
-        return int(price_str.split('만')[0]) * 10000
-    return int(price_str.replace(',', ''))
+    try:
+        price_str = price_str.replace(' ', '').replace(',', '')  # 공백과 콤마 제거
+        if '억' in price_str:
+            parts = price_str.split('억')
+            return int(parts[0]) * 100000000 + (int(parts[1]) * 10000 if len(parts) > 1 and parts[1] else 0)
+        elif '만' in price_str:
+            return int(price_str.split('만')[0]) * 10000
+        else:
+            return int(price_str)
+    except Exception as e:
+        st.error(f"가격 변환 오류: {e}")
+        return None
+
 
 def format_price(price):
     """가격을 '억', '만', '천' 단위로 포맷팅"""
