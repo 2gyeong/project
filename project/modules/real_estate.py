@@ -1,10 +1,11 @@
 import os
 import json
 import streamlit as st
-from modules.fetch_data import get_apartments
-from modules.utils import convert_price, format_price
-from modules.visualization import create_dataframe, create_bar_chart
+import altair as alt
 import pandas as pd
+from modules.fetch_data import get_apartments
+from modules.utils import convert_price
+from modules.visualization import create_dataframe, create_bar_chart
 
 def render_real_estate_page():
     st.title("부동산 정보")
@@ -47,7 +48,14 @@ def render_real_estate_page():
     # 동별 평균 매매/전세 탭 내용
     with tab_average:
         st.subheader("동별 평균 매매/전세 데이터")
-        st.write("이 섹션에서 동별 평균 매매 및 전세 가격을 표시합니다. 데이터 분석 로직 추가 필요.")
+
+        # 50~60㎡ 동별 평균 매매/전세
+        with st.expander("50~60㎡ 동별 평균 매매/전세"):
+            calculate_and_display_average_prices(dong_options, 50, 60)
+
+        # 80~90㎡ 동별 평균 매매/전세
+        with st.expander("80~90㎡ 동별 평균 매매/전세"):
+            calculate_and_display_average_prices(dong_options, 80, 90)
 
 def process_real_estate_data(selected_dong, dong_options, data_type, area_min, area_max):
     """
@@ -89,3 +97,47 @@ def process_real_estate_data(selected_dong, dong_options, data_type, area_min, a
     else:
         st.error("아파트 데이터를 가져오지 못했습니다.")
 
+def calculate_and_display_average_prices(dong_options, area_min, area_max):
+    """
+    주어진 면적 범위에 대한 동별 평균 매매가 및 전세가를 계산하고 표시합니다.
+    """
+    average_prices = []
+    average_rent_prices = []
+    for dong in dong_options.keys():
+        apartments = get_apartments(dong, dong_options)
+        sale_prices = []
+        rent_prices = []
+        for apt in apartments:
+            area_value = float(apt['area']) if apt['area'] else 0
+            price_value = convert_price(apt['price']) if apt['price'] else None
+            if area_min <= area_value < area_max:
+                if apt['transaction_type'] == '매매' and price_value is not None:
+                    sale_prices.append(price_value)
+                elif apt['transaction_type'] == '전세' and price_value is not None:
+                    rent_prices.append(price_value)
+        average_sale_price = sum(sale_prices) / len(sale_prices) if sale_prices else 0
+        average_rent_price = sum(rent_prices) / len(rent_prices) if rent_prices else 0
+        average_prices.append({'법정동': dong, '평균 매매가': average_sale_price / 100000000})
+        average_rent_prices.append({'법정동': dong, '평균 전세가': average_rent_price / 100000000})
+
+    df_avg_prices = pd.DataFrame(average_prices)
+    df_avg_rent_prices = pd.DataFrame(average_rent_prices)
+    df_combined = pd.merge(df_avg_prices, df_avg_rent_prices, on='법정동')
+
+    st.write(f"{area_min}~{area_max}㎡ 동별 평균 매매가 및 전세가")
+
+    # 시각화
+    line_chart = alt.Chart(df_combined).mark_line(point=True).encode(
+        x='법정동:N',
+        y=alt.Y('평균 매매가:Q', title='가격(억)'),
+        color=alt.value('red'),
+        tooltip=[alt.Tooltip('법정동:N', title='법정동'), alt.Tooltip('평균 매매가:Q', title='가격(억)')]
+    )
+    line_chart_rent = alt.Chart(df_combined).mark_line(point=True).encode(
+        x='법정동:N',
+        y=alt.Y('평균 전세가:Q', title='가격(억)'),
+        color=alt.value('blue'),
+        tooltip=[alt.Tooltip('법정동:N', title='법정동'), alt.Tooltip('평균 전세가:Q', title='가격(억)')]
+    )
+    combined_chart = line_chart + line_chart_rent
+    st.altair_chart(combined_chart, use_container_width=True)
