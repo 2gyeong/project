@@ -126,18 +126,22 @@ def calculate_and_display_average_prices(dong_options, area_min, area_max):
 
     st.write(f"{area_min}~{area_max}㎡ 동별 평균 매매가 및 전세가")
 
+    # 데이터 준비 (범례용 데이터프레임)
+    df_avg_prices['type'] = '평균 매매가'
+    df_avg_rent_prices['type'] = '평균 전세가'
+    df_legend_combined = pd.concat([df_avg_prices.rename(columns={'평균 매매가': '가격'}),
+                                    df_avg_rent_prices.rename(columns={'평균 전세가': '가격'})])
+
     # 시각화
-    line_chart = alt.Chart(df_combined).mark_line(point=True).encode(
+    chart = alt.Chart(df_legend_combined).mark_line(point=True).encode(
         x='법정동:N',
-        y=alt.Y('평균 매매가:Q', title='가격(억)'),
-        color=alt.value('red'),
-        tooltip=[alt.Tooltip('법정동:N', title='법정동'), alt.Tooltip('평균 매매가:Q', title='가격(억)')]
+        y=alt.Y('가격:Q', title='가격(억)'),
+        color=alt.Color('type:N', title='거래 유형', legend=alt.Legend(orient='top')),
+        tooltip=[alt.Tooltip('법정동:N', title='법정동'), alt.Tooltip('가격:Q', title='가격(억)'), alt.Tooltip('type:N', title='거래 유형')]
+    ).properties(
+        width=700,
+        height=400
     )
-    line_chart_rent = alt.Chart(df_combined).mark_line(point=True).encode(
-        x='법정동:N',
-        y=alt.Y('평균 전세가:Q', title='가격(억)'),
-        color=alt.value('blue'),
-        tooltip=[alt.Tooltip('법정동:N', title='법정동'), alt.Tooltip('평균 전세가:Q', title='가격(억)')]
-    )
-    combined_chart = line_chart + line_chart_rent
-    st.altair_chart(combined_chart, use_container_width=True)
+
+    # 그래프 출력
+    st.altair_chart(chart, use_container_width=True)
