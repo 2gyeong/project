@@ -4,7 +4,7 @@ import streamlit as st
 import pandas as pd
 import altair as alt
 import seaborn as sns
-from modules.utils import convert_price
+from modules.utils import convert_price, parse_price
 from wordcloud import WordCloud
 from io import BytesIO
 
@@ -125,7 +125,6 @@ def create_bar_chart(df, title):
     return chart
 
 
-
 def create_bar_chart(df, title):
     # 데이터프레임이 비어 있는 경우 처리
     if df.empty:
@@ -134,7 +133,7 @@ def create_bar_chart(df, title):
 
     # 데이터 타입 변환
     df['단지명'] = df['단지명'].astype(str)  # 범주형
-    df['가격'] = pd.to_numeric(df['가격'], errors='coerce')  # 수치형
+    df['가격'] = df['가격'].apply(parse_price)  # 문자열 가격 데이터를 숫자로 변환
 
     # 결측값 제거
     df = df.dropna(subset=['단지명', '가격'])
@@ -142,14 +141,15 @@ def create_bar_chart(df, title):
     # Altair 바 차트 생성
     chart = alt.Chart(df).mark_bar().encode(
         x=alt.X('단지명:N', sort='-y', title="단지명"),
-        y=alt.Y('가격:Q', title="가격 (억)"),
-        tooltip=['단지명', '가격', '전용면적', '현재 층/전체 층']
+        y=alt.Y('가격:Q', title="가격 (억)", axis=alt.Axis(format='~s')),
+        tooltip=['단지명', alt.Tooltip('가격:Q', format=',.0f', title="가격 (원)"), '전용면적', '현재 층/전체 층']
     ).properties(
         title=title,
         width=700,
         height=400
     )
     return chart
+
 
 
 

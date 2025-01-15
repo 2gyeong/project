@@ -30,7 +30,7 @@ def fetch_apartments(url):
         raise Exception(f"API 요청 중 오류가 발생했습니다: {e}")
 
 
-def get_apartments(selected_dong, dong_options, max_pages=15):
+def get_apartments(selected_dong, dong_options, max_pages=5):
     """
     선택된 동의 아파트 데이터를 가져옵니다.
     """
